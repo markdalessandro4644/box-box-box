@@ -136,9 +136,13 @@ def get_feed_by_source(source):
 @app.route('/')
 def index():
     """Serve the HTML page"""
-    with open('/home/claude/box-box-box-functional.html', 'r') as f:
-        html = f.read()
-    return render_template_string(html)
+    try:
+        with open('box-box-box-functional.html', 'r') as f:
+            html = f.read()
+        return render_template_string(html)
+    except FileNotFoundError:
+        # If file not found, return a simple message
+        return "Box Box Box is running! API available at /api/feeds"
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
