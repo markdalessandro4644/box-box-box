@@ -28,20 +28,30 @@ def parse_feed(source_name, feed_url):
         is_podcast = source_name in PODCAST_SOURCES
         
         for entry in feed.entries[:10]:  # Get latest 10 items
-            # Parse publication date
-            pub_date = entry.get('published', entry.get('updated', ''))
+            # Parse publication date - try multiple fields
+            pub_date = entry.get('published', entry.get('updated', entry.get('created', '')))
             parsed_datetime = None
+            
             try:
                 if pub_date:
+                    # Try feedparser's date parsing
                     dt = feedparser._parse_date(pub_date)
                     if dt:
                         parsed_datetime = datetime(*dt[:6])
                         time_ago = get_time_ago(parsed_datetime)
                     else:
                         time_ago = 'Recently'
+                # Fallback: try published_parsed or updated_parsed
+                elif hasattr(entry, 'published_parsed') and entry.published_parsed:
+                    parsed_datetime = datetime(*entry.published_parsed[:6])
+                    time_ago = get_time_ago(parsed_datetime)
+                elif hasattr(entry, 'updated_parsed') and entry.updated_parsed:
+                    parsed_datetime = datetime(*entry.updated_parsed[:6])
+                    time_ago = get_time_ago(parsed_datetime)
                 else:
                     time_ago = 'Recently'
-            except:
+            except Exception as e:
+                print(f"Date parsing error for {source_name}: {e}")
                 time_ago = 'Recently'
             
             # Get description/summary
@@ -119,6 +129,34 @@ def get_feeds():
         'success': True,
         'count': len(all_entries),
         'entries': all_entries
+    })
+
+@app.route('/api/debug')
+def debug_feeds():
+    """Debug endpoint to see timestamps"""
+    all_entries = []
+    
+    for source_name, feed_url in FEEDS.items():
+        entries = parse_feed(source_name, feed_url)
+        all_entries.extend(entries)
+    
+    # Sort by timestamp
+    all_entries.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
+    
+    # Return with more detail
+    debug_info = []
+    for entry in all_entries[:20]:  # First 20
+        debug_info.append({
+            'source': entry['source'],
+            'title': entry['title'][:50] + '...',
+            'time_ago': entry['time_ago'],
+            'timestamp': entry.get('timestamp', 0),
+            'raw_date': datetime.fromtimestamp(entry['timestamp']).strftime('%Y-%m-%d %H:%M:%S') if entry.get('timestamp', 0) > 0 else 'No date'
+        })
+    
+    return jsonify({
+        'success': True,
+        'entries': debug_info
     })
 
 @app.route('/api/feeds/<source>')
