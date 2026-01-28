@@ -28,30 +28,38 @@ def parse_feed(source_name, feed_url):
         is_podcast = source_name in PODCAST_SOURCES
         
         for entry in feed.entries[:10]:  # Get latest 10 items
-            # Parse publication date - try multiple fields
-            pub_date = entry.get('published', entry.get('updated', entry.get('created', '')))
+            # Parse publication date - try ALL possible date fields
             parsed_datetime = None
             
-            try:
-                if pub_date:
-                    # Try feedparser's date parsing
-                    dt = feedparser._parse_date(pub_date)
-                    if dt:
-                        parsed_datetime = datetime(*dt[:6])
-                        time_ago = get_time_ago(parsed_datetime)
-                    else:
-                        time_ago = 'Recently'
-                # Fallback: try published_parsed or updated_parsed
-                elif hasattr(entry, 'published_parsed') and entry.published_parsed:
+            # Try method 1: published_parsed (already a time tuple)
+            if hasattr(entry, 'published_parsed') and entry.published_parsed:
+                try:
                     parsed_datetime = datetime(*entry.published_parsed[:6])
-                    time_ago = get_time_ago(parsed_datetime)
-                elif hasattr(entry, 'updated_parsed') and entry.updated_parsed:
+                except:
+                    pass
+            
+            # Try method 2: updated_parsed
+            if not parsed_datetime and hasattr(entry, 'updated_parsed') and entry.updated_parsed:
+                try:
                     parsed_datetime = datetime(*entry.updated_parsed[:6])
-                    time_ago = get_time_ago(parsed_datetime)
-                else:
-                    time_ago = 'Recently'
-            except Exception as e:
-                print(f"Date parsing error for {source_name}: {e}")
+                except:
+                    pass
+            
+            # Try method 3: parse published string
+            if not parsed_datetime:
+                pub_date = entry.get('published', entry.get('updated', entry.get('created', '')))
+                if pub_date:
+                    try:
+                        dt = feedparser._parse_date(pub_date)
+                        if dt:
+                            parsed_datetime = datetime(*dt[:6])
+                    except:
+                        pass
+            
+            # Calculate time_ago
+            if parsed_datetime:
+                time_ago = get_time_ago(parsed_datetime)
+            else:
                 time_ago = 'Recently'
             
             # Get description/summary
@@ -158,6 +166,35 @@ def debug_feeds():
         'success': True,
         'entries': debug_info
     })
+
+@app.route('/api/raw-feed/<source>')
+def raw_feed_debug(source):
+    """Show raw feed data to debug date parsing"""
+    if source not in FEEDS:
+        return jsonify({'error': 'Source not found'}), 404
+    
+    try:
+        feed = feedparser.parse(FEEDS[source])
+        if not feed.entries:
+            return jsonify({'error': 'No entries found'})
+        
+        # Get first entry and show all its fields
+        entry = feed.entries[0]
+        
+        return jsonify({
+            'source': source,
+            'feed_title': feed.feed.get('title', 'Unknown'),
+            'entry_sample': {
+                'title': entry.get('title', 'No title'),
+                'published': entry.get('published', 'MISSING'),
+                'updated': entry.get('updated', 'MISSING'),
+                'published_parsed': str(entry.get('published_parsed', 'MISSING')),
+                'updated_parsed': str(entry.get('updated_parsed', 'MISSING')),
+                'all_keys': list(entry.keys())
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 @app.route('/api/feeds/<source>')
 def get_feed_by_source(source):
