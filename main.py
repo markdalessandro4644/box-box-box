@@ -65,14 +65,55 @@ def parse_feed(source_name, feed_url):
             # Get link
             link = entry.get('link', '#')
             
-            # For podcasts, try to get artwork
-            artwork_url = None
-            if is_podcast:
-                # Try to get iTunes image
-                if hasattr(entry, 'image'):
-                    artwork_url = entry.image.get('href', None)
-                elif 'itunes_image' in entry:
-                    artwork_url = entry.itunes_image.get('href', None)
+            # Get image/thumbnail - for both articles and podcasts
+            image_url = None
+            
+            # Try multiple image sources
+            # 1. Media content (common in news feeds)
+            if hasattr(entry, 'media_content') and entry.media_content:
+                try:
+                    image_url = entry.media_content[0].get('url', None)
+                except:
+                    pass
+            
+            # 2. Media thumbnail
+            if not image_url and hasattr(entry, 'media_thumbnail') and entry.media_thumbnail:
+                try:
+                    image_url = entry.media_thumbnail[0].get('url', None)
+                except:
+                    pass
+            
+            # 3. Enclosure (podcast artwork or article images)
+            if not image_url and hasattr(entry, 'enclosures') and entry.enclosures:
+                for enclosure in entry.enclosures:
+                    if enclosure.get('type', '').startswith('image/'):
+                        image_url = enclosure.get('href', None)
+                        break
+            
+            # 4. iTunes image (podcasts)
+            if not image_url and hasattr(entry, 'image'):
+                try:
+                    image_url = entry.image.get('href', None)
+                except:
+                    pass
+            
+            # 5. iTunes image alternative
+            if not image_url and 'itunes_image' in entry:
+                try:
+                    image_url = entry.itunes_image.get('href', None)
+                except:
+                    pass
+            
+            # 6. Check content for images (last resort for articles)
+            if not image_url and hasattr(entry, 'content') and entry.content:
+                try:
+                    import re
+                    content_html = entry.content[0].get('value', '')
+                    img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', content_html)
+                    if img_match:
+                        image_url = img_match.group(1)
+                except:
+                    pass
             
             entries.append({
                 'source': source_name,
@@ -81,7 +122,7 @@ def parse_feed(source_name, feed_url):
                 'link': link,
                 'time_ago': time_ago,
                 'is_podcast': is_podcast,
-                'artwork_url': artwork_url,
+                'image_url': image_url,
                 'timestamp': parsed_datetime.timestamp() if parsed_datetime else 0
             })
         
