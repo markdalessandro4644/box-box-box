@@ -28,39 +28,30 @@ def parse_feed(source_name, feed_url):
         is_podcast = source_name in PODCAST_SOURCES
         
         for entry in feed.entries[:10]:  # Get latest 10 items
-            # Parse publication date - try ALL possible date fields
             parsed_datetime = None
             
-            # Try method 1: published_parsed (already a time tuple)
-            if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                try:
+            # Try published_parsed first (this is a time.struct_time tuple)
+            try:
+                if hasattr(entry, 'published_parsed') and entry.published_parsed is not None:
+                    # published_parsed is a time tuple, convert to datetime
                     parsed_datetime = datetime(*entry.published_parsed[:6])
-                except:
-                    pass
+            except Exception as e:
+                print(f"Error parsing published_parsed for {source_name}: {e}")
             
-            # Try method 2: updated_parsed
-            if not parsed_datetime and hasattr(entry, 'updated_parsed') and entry.updated_parsed:
+            # Try updated_parsed as fallback
+            if parsed_datetime is None:
                 try:
-                    parsed_datetime = datetime(*entry.updated_parsed[:6])
-                except:
-                    pass
-            
-            # Try method 3: parse published string
-            if not parsed_datetime:
-                pub_date = entry.get('published', entry.get('updated', entry.get('created', '')))
-                if pub_date:
-                    try:
-                        dt = feedparser._parse_date(pub_date)
-                        if dt:
-                            parsed_datetime = datetime(*dt[:6])
-                    except:
-                        pass
+                    if hasattr(entry, 'updated_parsed') and entry.updated_parsed is not None:
+                        parsed_datetime = datetime(*entry.updated_parsed[:6])
+                except Exception as e:
+                    print(f"Error parsing updated_parsed for {source_name}: {e}")
             
             # Calculate time_ago
             if parsed_datetime:
                 time_ago = get_time_ago(parsed_datetime)
             else:
                 time_ago = 'Recently'
+                print(f"No date found for {source_name}: {entry.get('title', 'Unknown')[:30]}")
             
             # Get description/summary
             description = entry.get('summary', entry.get('description', ''))
