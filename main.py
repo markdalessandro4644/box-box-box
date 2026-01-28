@@ -30,11 +30,13 @@ def parse_feed(source_name, feed_url):
         for entry in feed.entries[:10]:  # Get latest 10 items
             # Parse publication date
             pub_date = entry.get('published', entry.get('updated', ''))
+            parsed_datetime = None
             try:
                 if pub_date:
                     dt = feedparser._parse_date(pub_date)
                     if dt:
-                        time_ago = get_time_ago(datetime(*dt[:6]))
+                        parsed_datetime = datetime(*dt[:6])
+                        time_ago = get_time_ago(parsed_datetime)
                     else:
                         time_ago = 'Recently'
                 else:
@@ -70,7 +72,8 @@ def parse_feed(source_name, feed_url):
                 'link': link,
                 'time_ago': time_ago,
                 'is_podcast': is_podcast,
-                'artwork_url': artwork_url
+                'artwork_url': artwork_url,
+                'timestamp': parsed_datetime.timestamp() if parsed_datetime else 0
             })
         
         return entries
@@ -109,8 +112,8 @@ def get_feeds():
         entries = parse_feed(source_name, feed_url)
         all_entries.extend(entries)
     
-    # Sort by time (most recent first)
-    # For now, we'll just return them as-is since exact timestamps are tricky
+    # Sort by timestamp (most recent first)
+    all_entries.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
     
     return jsonify({
         'success': True,
