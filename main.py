@@ -12,6 +12,7 @@ FEEDS = {
     'The Race': 'https://www.the-race.com/feed/',
     'F1.com': 'https://www.formula1.com/en/latest/all.xml',
     'Sky Sports F1': 'https://rss.app/feeds/Be43MHzhEIyFjrAC.xml',
+    'Autosport': 'https://www.autosport.com/rss/feed/f1',
     'The Race F1 Podcast': 'https://feeds.acast.com/public/shows/6819ae2bf30c20bff775e8a1',
     'F1 Beyond the Grid': 'https://audioboom.com/channels/4964339.rss',
     'F1 Nation': 'https://audioboom.com/channels/5024396.rss'
