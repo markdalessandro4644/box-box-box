@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, jsonify, render_template_string, send_file
 import feedparser
 from datetime import datetime
 import requests
@@ -254,6 +254,14 @@ def index():
     except FileNotFoundError:
         # If file not found, return a simple message
         return "Box Box Box is running! API available at /api/feeds"
+
+@app.route('/favicon.ico')
+def favicon():
+    """Serve the favicon"""
+    try:
+        return send_file('favicon.ico', mimetype='image/x-icon')
+    except FileNotFoundError:
+        return "", 404
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
